@@ -49,7 +49,6 @@ const PERSISTENT_STATE_PATH: &str = "persistent-state.json";
 
 /// Maps app ID hex strings (as they appear in manifest.toml) to icon names used in the dropdown.
 const APP_ID_ICONS: &[(&str, &str)] = &[
-    ("0x426974636f696e2057616c6c65740000", "bitcoin"), // Bitcoin Wallet
     ("0x4465637265642057616c6c6574000000", "decred"),  // Decred Wallet
     ("0x41757468656e74696361746f72203246", "shield"),  // 2FA Authenticator
     ("0x53656564205661756c74000000000000", "acorn"),   // Seed Vault

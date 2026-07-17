@@ -103,7 +103,6 @@ const DEFAULT_SERVICES_NORMAL: &[&str] = &[
 const DEFAULT_APPS_NORMAL: &[&str] = &[
     "gui-app-alerts",
     "gui-app-authenticator",
-    "gui-app-bitcoin",
     "gui-app-decred",
     "gui-app-file-browser",
     "gui-app-onboarding",
@@ -160,7 +159,6 @@ const DEFAULT_SERVICES_HOSTED: &[&str] = &[
     "gui-app-regulatory",
     "gui-app-system-actions",
     "gui-app-file-browser",
-    "gui-app-bitcoin",
     "gui-app-decred",
     "gui-app-authenticator",
     "gui-app-security-keys",
