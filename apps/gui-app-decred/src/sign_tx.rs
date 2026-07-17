@@ -25,9 +25,9 @@
 //   SD : pick a *.dcrtx file (Airlock on hardware, $DECRED_FUZZ_DIR or
 //        ~/fuzz in the hosted sim), write signed.dcrtx back the same way.
 use anyhow::{anyhow, Result};
+use decred_core::airgap::{decode_sign_request, sign_request, ReviewSummary, SignRequest};
 use slint_keyos_platform::gui_server_api::navigation::qrscanner::{ScanQrOptions, ScanQrResult};
 use slint_keyos_platform::navigation::open_qr_scanner;
-use decred_core::airgap::{decode_sign_request, sign_request, ReviewSummary, SignRequest};
 use slint_keyos_platform::slint::ComponentHandle;
 use slint_keyos_platform::slint::{ModelRc, VecModel};
 use slint_keyos_platform::StoredValue;
@@ -56,7 +56,8 @@ pub fn init(state: StoredValue<AppState>) {
     sign.on_start_qr_scan({
         move || {
             if let Err(e) = begin_scan(state) {
-                log::error!("qr scan start failed: {e:?}");
+                log::error!("qr scan failed: {e:?}");
+                show_scan_error(state, &e.to_string());
             }
         }
     });
@@ -147,25 +148,29 @@ pub fn begin_scan(state: StoredValue<AppState>) -> Result<()> {
         Err(e) => return Err(anyhow!("scanner: {e:?}")),
     };
 
+    handle_scan_result(state, scan)
+}
+
+/// Route a completed scan to the right ingest path. Shared by the in-app
+/// scanner (`begin_scan`) and the universal-scan deep-link (main.rs), so both
+/// transports land in the same review flow. A sign request navigates to the
+/// sign page itself: on the deep-link path the app may be sitting on any page.
+pub fn handle_scan_result(state: StoredValue<AppState>, scan: ScanQrResult) -> Result<()> {
     match scan {
         // Animated/typed UR: the OS hands us the UR type + reassembled bytes.
         ScanQrResult::Ur2 { ur_type, data, .. } => match ur_type.as_str() {
             "dcr-sign-request" => {
+                navigate_to_sign(state);
                 let ui = state.borrow().ui();
                 ui.global::<SignTx>().set_origin(OriginView::Qr);
                 ingest(state, Origin::Qr, &data)
             }
             "dcr-balance" => {
                 // Balance payload is plain UTF-8 key=value text.
-                let text = String::from_utf8(data)
-                    .map_err(|e| anyhow!("balance payload not UTF-8: {e}"))?;
-                crate::balance::apply_text(state, &text, "QR")
-                    .map_err(|e| anyhow!("balance: {e}"))
+                let text = String::from_utf8(data).map_err(|e| anyhow!("balance payload not UTF-8: {e}"))?;
+                crate::balance::apply_text(state, &text, "QR").map_err(|e| anyhow!("balance: {e}"))
             }
-            other => {
-                show_error(state, &format!("Unsupported QR type: {other}"));
-                Ok(())
-            }
+            other => Err(anyhow!("Unsupported QR type: {other}")),
         },
         // Plain (non-UR) QR: accept a single-part UR string as text.
         ScanQrResult::Qr { data, .. } => {
@@ -173,13 +178,37 @@ pub fn begin_scan(state: StoredValue<AppState>) -> Result<()> {
             if text.trim().to_uppercase().starts_with("UR:DCR-BALANCE/") {
                 crate::balance::ingest_qr(state, text.trim()).map_err(|e| anyhow!("{e}"))
             } else {
-                show_error(state, "Unrecognized QR code.");
-                Ok(())
+                Err(anyhow!("Unrecognized QR code."))
             }
         }
         // Cancelled from the scanner UI: stay wherever we were.
         _ => Ok(()),
     }
+}
+
+/// Abandon whatever the signing surface was showing before a universal-scan
+/// payload arrives (the Bitcoin app's reset_for_incoming_scan pattern): the
+/// routed package must never be reviewable alongside a previously loaded one.
+pub fn reset_for_incoming_scan(state: StoredValue<AppState>) {
+    state.borrow_mut().clear_pending();
+    let ui = state.borrow().ui();
+    ui.global::<SignTx>().set_state(SignState::Idle);
+}
+
+/// Bring the sign page to the front if some other page is active.
+fn navigate_to_sign(state: StoredValue<AppState>) {
+    let ui = state.borrow().ui();
+    if ui.global::<crate::RouteState>().get_active() != crate::RouteOption::Sign {
+        ui.global::<crate::Navigate>().invoke_sign(Default::default());
+    }
+}
+
+/// Surface a scan/ingest failure on the sign page's error screen, navigating
+/// there first if needed — a scan that silently does nothing looks like a
+/// broken device.
+pub fn show_scan_error(state: StoredValue<AppState>, msg: &str) {
+    navigate_to_sign(state);
+    show_error(state, msg);
 }
 
 // ---------------------------------------------------------------------------
@@ -195,6 +224,14 @@ struct CardFile {
     name: String,
     detail: String,
 }
+
+/// Hard ceiling on a `.dcrtx` read. A maximal VALID package (1000 inputs +
+/// 1000 outputs, the dcr-rs count caps) is well under this; anything bigger
+/// is hostile or corrupt, and refusing before the read bounds what a bad
+/// card can make the device allocate.
+pub(crate) const MAX_DCRTX_LEN: u64 = 256 * 1024;
+/// Ceiling on `balance.dcr`: a few lines of key=value text.
+pub(crate) const MAX_BALANCE_LEN: u64 = 4 * 1024;
 
 #[cfg(not(target_os = "xous"))]
 fn sim_card_dir() -> std::path::PathBuf {
@@ -260,23 +297,38 @@ fn list_card_files() -> Result<Vec<CardFile>> {
         .collect())
 }
 
-/// Read one named .dcrtx file off the card. `name` has already been vetted by
-/// `load_named_file` (no separators, no traversal).
+/// Read one named file off the card, refusing anything over `max_len` bytes.
+/// `name` has already been vetted by `load_named_file` (no separators, no
+/// traversal). The limit is enforced DURING the read (`take`), so an
+/// oversized file never fully lands in memory.
 #[cfg(not(target_os = "xous"))]
-pub(crate) fn read_card_file(name: &str) -> Result<Vec<u8>> {
+pub(crate) fn read_card_file(name: &str, max_len: u64) -> Result<Vec<u8>> {
+    use std::io::Read;
     let path = sim_card_dir().join(name);
-    std::fs::read(&path).map_err(|e| anyhow!("read {}: {e}", path.display()))
+    let file = std::fs::File::open(&path).map_err(|e| anyhow!("read {}: {e}", path.display()))?;
+    let mut bytes = Vec::new();
+    file.take(max_len + 1).read_to_end(&mut bytes).map_err(|e| anyhow!("read {}: {e}", path.display()))?;
+    check_len(name, &bytes, max_len)?;
+    Ok(bytes)
 }
 
 #[cfg(target_os = "xous")]
-pub(crate) fn read_card_file(name: &str) -> Result<Vec<u8>> {
+pub(crate) fn read_card_file(name: &str, max_len: u64) -> Result<Vec<u8>> {
     use std::io::Read;
-    let mut opened = fs::FileSystem::<crate::fs_permissions::FileSystemPermissions>::default()
+    let opened = fs::FileSystem::<crate::fs_permissions::FileSystemPermissions>::default()
         .open_file(name, fs::Location::Airlock, fs::OpenFlags { read: true, write: false, create: false })
         .map_err(|e| anyhow!("opening {name}: {e:?}"))?;
     let mut bytes = Vec::new();
-    opened.read_to_end(&mut bytes).map_err(|e| anyhow!("reading {name}: {e}"))?;
+    opened.take(max_len + 1).read_to_end(&mut bytes).map_err(|e| anyhow!("reading {name}: {e}"))?;
+    check_len(name, &bytes, max_len)?;
     Ok(bytes)
+}
+
+fn check_len(name: &str, bytes: &[u8], max_len: u64) -> Result<()> {
+    if bytes.len() as u64 > max_len {
+        return Err(anyhow!("{name} is larger than the {} KB limit — refusing to load it", max_len / 1024));
+    }
+    Ok(())
 }
 
 /// Write the signed tx back to the card. Returns the display path.
@@ -298,15 +350,17 @@ fn write_signed_to_card(signed: &[u8]) -> Result<String> {
 
 #[cfg(target_os = "xous")]
 fn write_signed_to_card(signed: &[u8]) -> Result<String> {
-    use std::io::Write;
     let mut file = fs::FileSystem::<crate::fs_permissions::FileSystemPermissions>::default()
         .open_file(
             "signed.dcrtx",
             fs::Location::Airlock,
-            fs::OpenFlags { read: false, write: true, create: true },
+            fs::OpenFlags { read: true, write: true, create: true },
         )
         .map_err(|e| anyhow!("creating signed.dcrtx: {e:?}"))?;
-    file.write_all(signed).map_err(|e| anyhow!("writing signed.dcrtx: {e}"))?;
+    // overwrite = seek(0) + write + TRUNCATE (the Bitcoin app's signed-PSBT
+    // pattern): a plain write_all over a longer previous signed.dcrtx would
+    // leave its tail bytes appended to the new tx, corrupting the file.
+    file.overwrite(signed).map_err(|e| anyhow!("writing signed.dcrtx: {e:?}"))?;
     Ok("signed.dcrtx (SD card)".to_string())
 }
 
@@ -333,7 +387,7 @@ fn load_named_file(state: StoredValue<AppState>, name: &str) -> Result<()> {
     if name.contains('/') || name.contains('\\') || name.contains("..") {
         return Err(anyhow!("invalid file name"));
     }
-    let bytes = read_card_file(name)?;
+    let bytes = read_card_file(name, MAX_DCRTX_LEN)?;
     ingest(state, Origin::SdCard, &bytes)
 }
 

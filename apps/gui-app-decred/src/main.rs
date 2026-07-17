@@ -11,13 +11,17 @@
 #![feature(must_not_suspend)]
 #![deny(must_not_suspend)]
 
-use slint_keyos_platform::{app, gui_server_api::InputMessage, StoredValue};
+use slint_keyos_platform::{
+    app,
+    gui_server_api::{navigation::qrscanner::MatchedQrResult, InputMessage},
+    StoredValue,
+};
 
 mod account_store;
 mod balance;
 mod create_account;
-mod passphrase;
 mod keys;
+mod passphrase;
 mod receive;
 mod sign_tx;
 mod state;
@@ -44,15 +48,25 @@ fn app_main(cx: AppContext, ui: AppWindow) {
     create_account::init(state);
     passphrase::init(state);
 
-    // Handle deep-link navigation (e.g. "open Decred and start a QR scan").
+    // Universal-scan handoff (same pattern as the Bitcoin app): the OS
+    // scanner already captured and reassembled the QR and routed it here via
+    // the manifest's qrMatchRules — consume the pending payload rather than
+    // making the user scan the same code twice.
     cx.set_input_handler({
+        let gui_api = cx.gui.clone();
         move |input| {
             if input.msg == InputMessage::NavigationFocused {
-                // The Decred app currently exposes a single deep-linked entry:
-                // jump straight into the sign-tx scanner. Kept intentionally
-                // simpler than the Bitcoin app's multi-action router.
-                if let Err(e) = sign_tx::begin_scan(state) {
-                    log::error!("failed to begin scan: {e:?}");
+                let Ok(Some(nav_bytes)) = gui_api.navigate_pending() else {
+                    log::error!("Navigation focused but no pending nav request");
+                    return;
+                };
+                if let Some(matched) = MatchedQrResult::from_slice(&nav_bytes) {
+                    let MatchedQrResult { scan_result, .. } = matched;
+                    sign_tx::reset_for_incoming_scan(state);
+                    if let Err(e) = sign_tx::handle_scan_result(state, scan_result) {
+                        log::error!("universal scan failed: {e:?}");
+                        sign_tx::show_scan_error(state, &e.to_string());
+                    }
                 }
             }
         }

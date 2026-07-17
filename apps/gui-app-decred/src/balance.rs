@@ -31,7 +31,7 @@ use crate::Balance;
 
 pub fn init(state: StoredValue<AppState>) {
     // Try the SD card at launch; QR arrives later via ingest_qr().
-    match crate::sign_tx::read_card_file("balance.dcr") {
+    match crate::sign_tx::read_card_file("balance.dcr", crate::sign_tx::MAX_BALANCE_LEN) {
         Ok(bytes) => match String::from_utf8(bytes) {
             Ok(text) => {
                 if let Err(e) = apply_text(state, &text, "SD card") {

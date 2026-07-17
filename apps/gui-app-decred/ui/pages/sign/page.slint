@@ -16,12 +16,13 @@ import { SignTx, SignState, RecipientView } from "../../sign-tx.slint";
 import { Passphrase } from "../../passphrase.slint";
 
 export component SignPage inherits BasePage {
-    init => {
-        // Always start the signing flow clean (don't reopen on a stale QR/Done).
-        SignTx.reject();
-    }
+    // No init-reset here: a universal-scan deep-link ingests the package and
+    // sets Review BEFORE this page is instantiated, and an init reject would
+    // wipe it. Instead, leaving via the back arrow abandons the flow — so a
+    // later manual entry still starts clean.
     NavHeader {
         clicked => {
+            SignTx.reject();
             Navigate.backward();
         }
     }
