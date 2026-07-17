@@ -50,6 +50,7 @@ const PERSISTENT_STATE_PATH: &str = "persistent-state.json";
 /// Maps app ID hex strings (as they appear in manifest.toml) to icon names used in the dropdown.
 const APP_ID_ICONS: &[(&str, &str)] = &[
     ("0x426974636f696e2057616c6c65740000", "bitcoin"), // Bitcoin Wallet
+    ("0x4465637265642057616c6c6574000000", "decred"),  // Decred Wallet
     ("0x41757468656e74696361746f72203246", "shield"),  // 2FA Authenticator
     ("0x53656564205661756c74000000000000", "acorn"),   // Seed Vault
 ];
@@ -165,9 +166,11 @@ fn app_main(cx: AppContext, ui: AppWindow) {
 
     let state = StoredValue::new(AppState::new(cx.gui.clone(), ui.as_weak()));
 
-    // MOCK Decred sparkline for the launcher card until QuantumLink pushes
-    // real DCR price history: deterministic pseudo-random walk around $12,
-    // rendered with the exact same draw_graph as the Bitcoin card.
+    // MOCK Decred card data for dev builds until QuantumLink pushes real
+    // balance/price history: deterministic pseudo-random walk around $12,
+    // rendered with the exact same draw_graph as the Bitcoin card. Production
+    // builds skip this and show a blank card — never fabricated figures.
+    #[cfg(not(feature = "production"))]
     {
         let mut pts: Vec<PricePoint> = Vec::with_capacity(48);
         let mut price: i64 = 1200; // cents
@@ -187,7 +190,13 @@ fn app_main(cx: AppContext, ui: AppWindow) {
             (0x2d, 0xd8, 0xa3), // dcrdata green line
             (0x2d, 0xd8, 0xa3), // green fill under the line
         );
-        ui.global::<State>().set_decred_graph_image(img);
+        let g = ui.global::<State>();
+        g.set_decred_graph_image(img);
+        g.set_decred_price("603.84".into());
+        g.set_decred_balance("50.32 DCR".into());
+        g.set_decred_rate("DCR @ $12.00".into());
+        g.set_decred_subtitle_1("Last transaction".into());
+        g.set_decred_subtitle_2("2 days ago".into());
     }
 
     #[cfg(not(feature = "production"))]
@@ -205,7 +214,7 @@ fn app_main(cx: AppContext, ui: AppWindow) {
             HiddenApp { label: "Playground".into(), app_id: "0x7c9f81f9bcee31425062fb0d8fbf3001".into() },
             HiddenApp { label: "Crypto Perf".into(), app_id: "0xc781da2a8f5f4a68b2ee0e6ad83d41b7".into() },
             HiddenApp { label: "Update".into(), app_id: "0x6b713041faef901f23743263a45dcb83".into() },
-        HiddenApp { label: "Decred".into(), app_id: "0x4465637265642057616c6c6574000000".into() },
+            HiddenApp { label: "Decred".into(), app_id: "0x4465637265642057616c6c6574000000".into() },
         ];
 
         ui.global::<State>().set_hidden_apps(slint::ModelRc::new(VecModel::from(hidden_apps)));

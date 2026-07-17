@@ -111,6 +111,9 @@ impl AccountStore {
         if n.is_empty() {
             return Some("Name cannot be empty");
         }
+        if n.chars().count() > 24 {
+            return Some("Name is too long (24 characters max)");
+        }
         if self.accounts.iter().any(|a| a.name.eq_ignore_ascii_case(n)) {
             return Some("Name already used");
         }

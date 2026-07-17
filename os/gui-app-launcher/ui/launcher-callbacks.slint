@@ -27,8 +27,15 @@ export global State {
     in property <string> last-update-time: "";
     in property <bool> is-envoy-connected: false;
     in property <image> bitcoin-graph-image;
-    // MOCK Decred sparkline until QuantumLink pushes real DCR history.
+    // Decred card figures. The launcher injects deterministic MOCK values in
+    // non-production builds; production leaves them empty (blank card) until
+    // a companion feed exists.
     in property <image> decred-graph-image;
+    in property <string> decred-price: "";
+    in property <string> decred-balance: "";
+    in property <string> decred-rate: "";
+    in property <string> decred-subtitle-1: "";
+    in property <string> decred-subtitle-2: "";
     in property <string> bitcoin-price: "";
     in property <string> bitcoin-price-change-percent: "";
     in property <string> bitcoin-currency-code: "USD";

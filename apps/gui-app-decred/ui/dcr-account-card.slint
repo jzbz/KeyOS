@@ -3,9 +3,8 @@ import { CircleIcon } from "@ui/widgets.slint";
 import { CardColor, IconSize } from "@ui/theme.slint";
 //
 // Clean Decred account card (app-scoped). Flat dark surface, clear hierarchy:
-// brand label, bold account name, large balance (companion-relayed once
-// QuantumLink lands; mock until then), muted USD subtitle, crisp logo badge.
-// Tapping the card opens the accounts page.
+// brand label, bold account name, large companion-reported balance, muted USD
+// subtitle, crisp logo badge. Tapping the card opens the accounts page.
 export component DcrAccountCard inherits Rectangle {
     in property <string> name: "Decred";
     in property <string> crypto-balance;

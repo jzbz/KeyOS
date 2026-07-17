@@ -50,13 +50,12 @@ template = ["gui-app", "fs-generic", "navigable"]
 # done entirely by the OS scanner app, reached via open_qr_scanner or the
 # universal-scan routing above. This app only receives the finished payload.
 
-# Filesystem scopes for the SD-card transport. Airlock is the vetted exchange
-# area; User/USB cover removable media.
+# Filesystem scopes for the SD-card transport: Airlock only — the vetted
+# exchange area is the app's single removable-media surface (unsigned.dcrtx /
+# balance.dcr in, signed.dcrtx out). The account list lives in the per-app
+# AppData sandbox, which needs no grant. No User/USB scopes: this app never
+# browses general storage.
 "os/fs" = [
     "GetAirlockReadAccess",
     "GetAirlockWriteAccess",
-    "GetUserReadAccess",
-    "GetUserWriteAccess",
-    "GetUsbReadAccess",
-    "GetUsbWriteAccess",
 ]

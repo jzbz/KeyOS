@@ -82,7 +82,9 @@ export global SignTx {
     in property <[SdFile]> sd-files;
     // Load the selected file by name.
     callback pick-file(string);
-    // Hidden debug: rotate through all files (sim fuzz testing).
+    // Hidden debug: rotate through all files (sim fuzz testing). The tap
+    // target only exists when Rust enables it (hosted sim, never hardware).
+    in property <bool> debug-enabled: false;
     callback debug-cycle();
     callback approve();
     callback reject();

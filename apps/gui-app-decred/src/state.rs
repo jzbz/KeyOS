@@ -26,8 +26,10 @@ pub struct AppState {
     pub account: u32,
     /// BIP39 passphrase for the CURRENT session ("" = default wallet). Held in
     /// memory only, NEVER persisted; each distinct passphrase is a completely
-    /// separate wallet derived from the same device seed.
-    pub passphrase: String,
+    /// separate wallet derived from the same device seed. Zeroizing wipes the
+    /// heap copy when it is replaced or the app exits (the transient copy
+    /// inside the Slint text field is outside our reach).
+    pub passphrase: zeroize::Zeroizing<String>,
     /// Persistent named-account list (index + name), loaded at startup.
     pub accounts: crate::account_store::AccountStore,
     /// Session cache of account-level extended PUBLIC keys for the current
@@ -57,7 +59,7 @@ impl AppState {
             // Restore the last-active account so receive/sign/export pick up
             // where the user left off.
             account: accounts.active,
-            passphrase: String::new(),
+            passphrase: zeroize::Zeroizing::new(String::new()),
             accounts,
             xpubs: BTreeMap::new(),
             pending: None,

@@ -1,21 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Balance global — currently MOCK DATA.
+// Balance global — companion-reported figures.
 //
-// The device is airgapped and cannot fetch balances itself. On real hardware,
-// these values would be pushed from an online companion over QuantumLink
-// (exactly as the Bitcoin app receives its balance + fx ExchangeRate). Until
-// that companion integration exists, these are hardcoded placeholders so the
-// balance UI can be built and reviewed.
-//
-// MOCK: 50.32 DCR @ $12.00/DCR = $603.84
+// The device is airgapped and cannot fetch balances itself; an online
+// companion (DCR Pulse) reports them via SD card or QR (see balance.rs).
+// Until something loads, the card shows the "—" placeholder.
 export global Balance {
     in property <string> dcr-amount: "—";
     in property <string> fiat-amount: "";
-    // "* via SD card" / "* via QuantumLink" — the transport that supplied
-    // these figures, shown small under the balance. Empty = nothing loaded.
+    // "Updated via SD card · 2h ago" — the transport that supplied these
+    // figures, shown small under the balance. Empty = nothing loaded.
     in property <string> source-note: "";
     // Freshness, e.g. "as of 2h ago". Optional.
     in property <string> as-of: "";
-    in property <bool> is-mock: true;
 }

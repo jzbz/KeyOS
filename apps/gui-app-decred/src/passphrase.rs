@@ -83,7 +83,9 @@ fn apply(state: StoredValue<AppState>, passphrase: &str) {
     let hidden = !passphrase.is_empty();
     {
         let mut s = state.borrow_mut();
-        s.passphrase = passphrase.to_string();
+        // Replacing the Zeroizing<String> wipes the previous passphrase's heap
+        // allocation before it is freed.
+        s.passphrase = zeroize::Zeroizing::new(passphrase.to_string());
         // A different passphrase is a different wallet: drop every cached
         // xpub, pending package and rendered QR from the previous identity.
         s.reset_wallet_session();

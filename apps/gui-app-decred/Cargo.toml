@@ -16,28 +16,26 @@ edition = "2021"
 license = "GPL-3.0-or-later"
 
 [dependencies]
-# --- KeyOS workspace crates (same set the Bitcoin app pulls) ---
+# --- KeyOS workspace crates (only what this app actually calls) ---
 anyhow = { workspace = true }
-async-channel = { workspace = true }
 foundation-ur = { workspace = true }       # animated QR (UR) encode/decode
-foundation-urtypes = { workspace = true }
 fs = { workspace = true }                  # SD-card read/write
 hex = { workspace = true }
-i18n = { version = "0.1.0", path = "../../i18n" }
 log = { workspace = true }
 log-server = { workspace = true }
 security = { workspace = true }            # GetSeed seam
+# Not called directly: the platform's generated router (#[route] on the page
+# props structs) expands to serde derives, and security::use_api!() expands to
+# IPC plumbing referencing `server` — both must stay linked.
+serde = { workspace = true, features = ["derive"] }
 server = { workspace = true }
-settings = { workspace = true }
 slint-keyos-platform = { path = "../../slint-keyos-platform/runtime" }
-thiserror = { workspace = true }
 
 # --- our verified Decred core (no BDK; BDK is Bitcoin-only) ---
 # Thin KeyOS adapter over the shared dcr-rs library; secp256k1 is re-exported
 # through it so the whole app provably uses one curve implementation.
 decred-core = { path = "../../utils/decred-core" }
-zeroize = "1"       # wipe heap copies of seed material after rendering
-serde = { workspace = true, features = ["derive"] }
+zeroize = "1"       # wipe the session passphrase on replace (dcr-rs wipes key material)
 
 [build-dependencies]
 slint-keyos-platform-build = { path = "../../slint-keyos-platform/build" }

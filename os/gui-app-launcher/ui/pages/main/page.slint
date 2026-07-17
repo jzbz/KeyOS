@@ -96,7 +96,9 @@ component BitcoinPriceDetails inherits VerticalLayout {
 }
 
 component BitcoinTile inherits Rectangle {
-    property <bool> is-loading: State.loading-app-id == "0x426974636f696e2057616c6c65740000";
+    // The one instance of this card launches the Decred app; shimmer while
+    // that app id is loading.
+    property <bool> is-loading: State.loading-app-id == "0x4465637265642057616c6c6574000000";
 
     in property <string> name;
     in property <string> price: "120,000";
@@ -161,13 +163,14 @@ component BitcoinTile inherits Rectangle {
 
                                     HeadingXl {
                                         horizontal-stretch: 0;
-                                        text: false ? "" : "$";
+                                        // Currency symbol only when there is a figure to label.
+                                        text: price == "" ? "" : "$";
                                         color: Palette.content-tertiary;
                                     }
 
                                     HeadingXl {
                                         horizontal-stretch: 1;
-                                        text: false ? "" : price;
+                                        text: price;
                                         color: Palette.content-secondary;
                                     }
 
@@ -486,17 +489,17 @@ export component MainPage inherits BasePage {
                 spacing: Size.sz4;
 
                 BitcoinTile {
-                    // MOCK Decred data — hardcoded until QuantumLink companion
-                    // pushes real balance/price. 50.32 DCR @ $12 = $603.84.
-                    price: "603.84";
-                    currency: "50.32 DCR";
-                    last-change-percent: "DCR @ $12.00";
-                    last-price-update-time: "mock";
+                    // Figures come from State: MOCK values injected by the
+                    // launcher in dev builds, empty (blank card) in production
+                    // until a companion feed exists.
+                    price: State.decred-price;
+                    currency: State.decred-balance;
+                    last-change-percent: State.decred-rate;
                     name: "Decred";
                     tile-card-color: CardColor.decred;
                     graph-image: State.decred-graph-image;
-                    subtitle-1: "Last transaction";
-                    subtitle-2: "2 days ago";
+                    subtitle-1: State.decred-subtitle-1;
+                    subtitle-2: State.decred-subtitle-2;
                     clicked => {
                         CB.app-clicked(240px, 400px, "0x4465637265642057616c6c6574000000");
                     }

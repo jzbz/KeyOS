@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Companion-reported balance. The device is airgapped and cannot see the
-// chain, so an online companion (DCR Pulse) reports the balance over one of
-// three transports — all carrying the SAME key=value text, all landing in the
-// same display:
+// chain, so an online companion (DCR Pulse) reports the balance — the SAME
+// key=value text over either transport, landing in the same display:
 //
 //   * SD card:   a `balance.dcr` file on the card (read at launch)
-//   * QR:        a `UR:DCR-BALANCE/...` animated/single QR scanned by camera
-//   * Bluetooth: QuantumLink push (hardware; sets via=Bluetooth)
+//   * QR:        a `UR:DCR-BALANCE/...` single/animated QR via the OS scanner
+//
+// (A QuantumLink push could carry the same payload later; nothing here
+// depends on it.)
 //
 // Balance is passive — no funds ever move based on it — so a stale or wrong
 // figure is at worst cosmetic, never a risk. Signing re-derives everything.
@@ -137,7 +138,6 @@ pub(crate) fn apply_text(state: StoredValue<AppState>, text: &str, default_via: 
     b.set_fiat_amount(fiat_str.into());
     b.set_source_note(note.into());
     b.set_as_of("".into());
-    b.set_is_mock(false);
     log::info!("companion balance: {dcr_val} DCR via {transport}");
     Ok(())
 }

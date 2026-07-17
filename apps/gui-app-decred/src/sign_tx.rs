@@ -83,8 +83,11 @@ pub fn init(state: StoredValue<AppState>) {
         }
     });
 
-    // Hidden debug affordance: rotate through every file to fuzz-test.
-    // Compiled to an error on hardware — it exists for the hosted sim only.
+    // Hidden debug affordance: rotate through every file to fuzz-test. The
+    // tap target only exists in the hosted sim — on hardware the property
+    // stays false and the TouchArea is never instantiated.
+    #[cfg(not(target_os = "xous"))]
+    sign.set_debug_enabled(true);
     sign.on_debug_cycle({
         move || {
             if let Err(e) = debug_inject_karamble_file(state) {

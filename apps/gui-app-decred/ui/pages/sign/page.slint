@@ -47,7 +47,7 @@ export component SignPage inherits BasePage {
                     color: #9aa0ab;
                     font-size: 15px;
                     horizontal-alignment: center;
-                    TouchArea {
+                    if SignTx.debug-enabled: TouchArea {
                         clicked => {
                             SignTx.debug-cycle();
                         }
