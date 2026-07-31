@@ -58,14 +58,13 @@ export global SignTx {
     in property <string> signing-account;
     // Estimated fee rate, e.g. "≈ 12 atoms/B (est.)".
     in property <string> fee-rate;
-    // Count of outputs the companion mislabelled as change but that
-    // are NOT ours — a detected lie. >0 means show a hard warning and
-    // gate the approve button.
-    in property <int> flagged-count: 0;
-    // Whether the user has acknowledged the mismatch warning.
-    in-out property <bool> mismatch-acknowledged: false;
     // True when the fee is suspiciously large relative to the send.
+    // (There is no mislabelled-change warning: since dcr-rs 0.3.0 a change
+    // output must carry the path that proves it, so a lie is refused outright
+    // rather than displayed for the user to override.)
     in property <bool> fee-warning: false;
+    // Whether the user has acknowledged the high-fee warning.
+    in-out property <bool> fee-acknowledged: false;
 
     // Result / failure surfaces.
     in property <string> saved-path;

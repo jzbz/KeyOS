@@ -183,34 +183,6 @@ export component SignPage inherits BasePage {
                 }
 
                 Rectangle { height: 12px; }
-                // HARD WARNING: companion mislabelled non-owned outputs as change.
-                if SignTx.flagged-count > 0: Rectangle {
-                    height: 92px;
-                    border-radius: 16px;
-                    background: #2a0e0e;
-                    border-width: 1.5px;
-                    border-color: #ff4d4d;
-                    VerticalLayout {
-                        padding: 12px;
-                        spacing: 4px;
-                        Text {
-                            text: "⚠ SECURITY WARNING";
-                            color: #ff6b6b;
-                            font-size: 14px;
-                            font-weight: 800;
-                            letter-spacing: 1px;
-                            horizontal-alignment: center;
-                        }
-                        Text {
-                            text: "Your companion labelled an output as change that is NOT one of your addresses. A correct wallet never does this — it may be faulty or hostile. Verify the recipients below.";
-                            color: #ffb3b3;
-                            font-size: 12px;
-                            horizontal-alignment: center;
-                            wrap: word-wrap;
-                        }
-                    }
-                }
-                if SignTx.flagged-count > 0: Rectangle { height: 12px; }
                 // ORANGE ALARM: fee is technically valid but suspiciously large.
                 if SignTx.fee-warning: Rectangle {
                     height: 84px;
@@ -550,25 +522,25 @@ export component SignPage inherits BasePage {
                 }
             }
 
-            // Acknowledgment gate: when the companion lied about change, the
-            // user MUST consciously acknowledge before Approve unlocks.
-            if SignTx.state == SignState.Review && (SignTx.flagged-count > 0 || SignTx.fee-warning) && !SignTx.mismatch-acknowledged: Button {
-                label: SignTx.flagged-count > 0 ? "I understand — these are NOT change" : "I understand — the fee is very high";
+            // Acknowledgment gate: an outsized fee must be consciously
+            // acknowledged before Approve unlocks.
+            if SignTx.state == SignState.Review && SignTx.fee-warning && !SignTx.fee-acknowledged: Button {
+                label: "I understand — the fee is very high";
                 importance: Importance.secondary;
                 background: #5a1a1a;
                 label-color: #ffd0d0;
                 clicked => {
-                    SignTx.mismatch-acknowledged = true;
+                    SignTx.fee-acknowledged = true;
                 }
             }
             // Review: the consequential choice. Disabled while an unacknowledged
-            // companion-mismatch is present, so it can't be signed reflexively.
+            // fee warning is present, so it can't be signed reflexively.
             if SignTx.state == SignState.Review: Button {
                 label: TR2.lookup(TrId.SignApprove);
                 importance: Importance.primary;
-                background: ((SignTx.flagged-count > 0 || SignTx.fee-warning) && !SignTx.mismatch-acknowledged) ? #1a2a44 : #2970ff;
+                background: (SignTx.fee-warning && !SignTx.fee-acknowledged) ? #1a2a44 : #2970ff;
                 label-color: #ffffff;
-                enabled: !((SignTx.flagged-count > 0 || SignTx.fee-warning) && !SignTx.mismatch-acknowledged);
+                enabled: !(SignTx.fee-warning && !SignTx.fee-acknowledged);
                 clicked => {
                     SignTx.approve();
                 }

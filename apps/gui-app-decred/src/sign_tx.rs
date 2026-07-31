@@ -6,13 +6,22 @@
 //
 // Decred has no PSBT. The shared dcr-rs library (re-exported as decred-core)
 // defines a compact CBOR "unsigned-tx package" (airgap::SignRequest,
-// FORMAT_VERSION = 1) carrying per input the prev_script + amount + derivation
-// path. The companion (DCR Pulse / Cake Wallet) is watch-only: it knows the
-// UTXOs, scripts, paths and builds that package. The device re-derives each
-// input key, recomputes its P2PKH script, and REFUSES to sign if the
-// recomputed script != the script the host claimed (Error::ScriptMismatch).
-// That check is the anti-tamper tripwire, and it now runs at REVIEW time (from
-// the cached account xpub — no seed access) as well as at sign time.
+// FORMAT_VERSION = 3) carrying per input the prev_script + amount + derivation
+// path + the funding transaction's PREFIX, and per change output the path that
+// proves the output is ours. The companion (DCR Pulse / Cake Wallet) is
+// watch-only: it knows the UTXOs, scripts and paths, and builds that package.
+//
+// Nothing in it is taken on trust. The device re-derives each input key,
+// recomputes its P2PKH script, and REFUSES to sign if the recomputed script !=
+// the script the host claimed (Error::ScriptMismatch) — the anti-tamper
+// tripwire, which runs at REVIEW time (from the cached account xpub, no seed
+// access) as well as at sign time. Since format version 2 it also recomputes
+// blake256 over each funding-transaction prefix and requires it to equal the
+// declared prevout, which is what makes the input amounts — and therefore the
+// fee on the review screen — verified evidence rather than a companion
+// assertion. Decred's signature hash does not commit to input amounts, so
+// before that a companion could understate one and have the difference paid to
+// the miner.
 //
 // Seed-prompt economy: review, wrong-wallet detection and change
 // classification all run from the account-level PUBLIC key cached in AppState
@@ -228,10 +237,14 @@ struct CardFile {
     detail: String,
 }
 
-/// Hard ceiling on a `.dcrtx` read. A maximal VALID package (1000 inputs +
-/// 1000 outputs, the dcr-rs count caps) is well under this; anything bigger
-/// is hostile or corrupt, and refusing before the read bounds what a bad
-/// card can make the device allocate.
+/// Hard ceiling on a `.dcrtx` read. dcr-rs caps a decoded package at
+/// MAX_PACKAGE_BYTES (512 KiB) but explicitly leaves a tighter, device-side
+/// limit to the application, since only we know the RAM budget. At format
+/// version 3 a maximal package — 1000 inputs, each carrying its funding
+/// transaction's prefix — measures ~248 KB, so this admits the worst valid
+/// case with room to spare while halving what a hostile card can make the
+/// device allocate. Anything larger is corrupt or hostile and is refused
+/// during the read, before it is fully in memory.
 pub(crate) const MAX_DCRTX_LEN: u64 = 256 * 1024;
 /// Ceiling on `balance.dcr`: a few lines of key=value text.
 pub(crate) const MAX_BALANCE_LEN: u64 = 4 * 1024;
@@ -401,7 +414,8 @@ fn load_named_file(state: StoredValue<AppState>, name: &str) -> Result<()> {
 /// account per session — the master key itself is only loaded when the user
 /// actually approves.
 pub fn ingest(state: StoredValue<AppState>, origin: Origin, bytes: &[u8]) -> Result<()> {
-    let req: SignRequest = decode_sign_request(bytes).map_err(|e| anyhow!("bad package: {e}"))?;
+    let req: SignRequest =
+        decode_sign_request(bytes).map_err(|e| anyhow!("{}", describe_decode_failure(bytes, &e)))?;
     // REFUSE dishonest math before anything is even shown for review.
     req.validate().map_err(|e| anyhow!("REFUSED: {e}"))?;
 
@@ -442,6 +456,34 @@ pub fn ingest(state: StoredValue<AppState>, origin: Origin, bytes: &[u8]) -> Res
     Ok(())
 }
 
+/// Turn a decode failure into something a user can act on.
+///
+/// A package from a companion that still speaks format version 1 or 2 does not
+/// fail the version check — it fails CBOR decoding first, because the input and
+/// output structures gained fields (`prev_tx_prefix`, and `branch`/`index` on
+/// outputs). The raw error for that is a bare "Parse", which tells a user
+/// nothing and, during the window where companions are catching up, would be
+/// the single most common thing they see.
+///
+/// So peek at the encoded version and name it. The package is a CBOR array
+/// whose FIRST element is `format_version`, a small unsigned integer: byte 0 is
+/// the array header (0x87/0x88 for 7/8 elements) and byte 1 is the version when
+/// it is below 24, which every real version is. This is for the error message
+/// only — never a trust decision, and the real gate stays inside dcr-rs.
+fn describe_decode_failure(bytes: &[u8], err: &decred_core::Error) -> String {
+    if let (Some(&header), Some(&version)) = (bytes.first(), bytes.get(1)) {
+        let is_array = header == 0x87 || header == 0x88;
+        if is_array && version < decred_core::airgap::FORMAT_VERSION && version > 0 {
+            return format!(
+                "This transaction was built by an older companion (airgap format version {version}; \
+                 this device requires version {}). Update your companion wallet and export it again.",
+                decred_core::airgap::FORMAT_VERSION,
+            );
+        }
+    }
+    format!("bad package: {err}")
+}
+
 /// Alarm threshold for the review screen's high-fee warning: > 0.1 DCR
 /// absolute, or > 5% of the amount sent (only when the fee also exceeds
 /// 0.01 DCR, so tiny everyday transactions never false-alarm). UI policy, so
@@ -474,10 +516,9 @@ fn render_review(
     sign.set_fee(fmt_dcr(summary.fee).into());
     sign.set_change(fmt_dcr(change_total).into());
     sign.set_recipient_count(summary.recipients.len() as i32);
-    sign.set_flagged_count(summary.flagged_mismatches.len() as i32);
     sign.set_fee_warning(fee_is_worrying(summary.fee, &summary.recipients));
     // Reset the acknowledgment each time a new tx is reviewed.
-    sign.set_mismatch_acknowledged(false);
+    sign.set_fee_acknowledged(false);
     // Join recipient address(es) + amount for on-screen verification.
     let recipient_str: String = summary
         .recipients
@@ -557,20 +598,25 @@ fn approve_and_sign(state: StoredValue<AppState>) -> Result<()> {
 
     // DEFENSE IN DEPTH: recompute the review from the cached xpub and re-check
     // the acknowledgment gate the UI enforces. Signing must refuse on its own
-    // if the review found mislabelled change or a worrying fee and the user
-    // has not explicitly acknowledged it — even if a future UI change (or bug)
-    // were to leave the Approve button enabled.
+    // if the review found a worrying fee and the user has not explicitly
+    // acknowledged it — even if a future UI change (or bug) were to leave the
+    // Approve button enabled.
+    //
+    // Mislabelled change is no longer part of this gate: since dcr-rs 0.3.0 an
+    // output claiming to be change carries the path that proves it, and a path
+    // that fails to derive is a hard error out of review_owned/validate rather
+    // than a warning to render. There is nothing left for a user to wave
+    // through — the package is refused before it can be displayed.
     {
         let mut s = state.borrow_mut();
         let xpub = s.account_xpub(req.account).map_err(|e| anyhow!("seed error: {e}"))?;
         let summary = req.review_owned(&s.secp, &xpub).map_err(|e| anyhow!("review failed: {e}"))?;
-        let needs_ack =
-            !summary.flagged_mismatches.is_empty() || fee_is_worrying(summary.fee, &summary.recipients);
+        let needs_ack = fee_is_worrying(summary.fee, &summary.recipients);
         drop(s);
         if needs_ack {
             let ui = state.borrow().ui();
-            if !ui.global::<SignTx>().get_mismatch_acknowledged() {
-                return Err(anyhow!("REFUSED: review warnings were not acknowledged"));
+            if !ui.global::<SignTx>().get_fee_acknowledged() {
+                return Err(anyhow!("REFUSED: the high-fee warning was not acknowledged"));
             }
         }
     }
@@ -681,9 +727,20 @@ pub fn debug_inject_karamble_file(_state: StoredValue<AppState>) -> Result<()> {
 }
 
 /// DEBUG (hosted sim only): build a known unsigned tx in-memory and feed it
-/// into the same `ingest` path. The single input's prev_script is derived from
-/// THIS device's own index-0 key, so signing's anti-tamper script check passes
+/// into the same `ingest` path. The input's prev_script is derived from THIS
+/// device's own index-0 key, so signing's anti-tamper script check passes
 /// exactly as on real hardware.
+///
+/// Format version 3 requires the funding transaction's PREFIX per input — the
+/// device recomputes its blake256 and demands it equal prev_hash — so a
+/// hardcoded real txid is no longer usable without also carrying that
+/// transaction. This builds a synthetic funding tx instead and takes prev_hash
+/// FROM it, which is self-consistent by construction: a fixture for exercising
+/// the flow, never a spend of a real on-chain coin.
+///
+/// Shaped to exercise the whole review: one foreign recipient plus real change
+/// back to our own index-1, so `prove_change_outputs` runs on the change path
+/// rather than being skipped.
 #[cfg(not(target_os = "xous"))]
 #[allow(dead_code)]
 pub fn debug_inject_test_tx(state: StoredValue<AppState>) -> Result<()> {
@@ -691,8 +748,9 @@ pub fn debug_inject_test_tx(state: StoredValue<AppState>) -> Result<()> {
     use decred_core::airgap::{encode_sign_request, InputMeta, OutputMeta, FORMAT_VERSION};
     use decred_core::hashing::hash160;
     use decred_core::hd::BRANCH_EXTERNAL;
+    use decred_core::tx::{MsgTx, TxOut};
 
-    let (prev_script, dest_script) = {
+    let (prev_script, change_script) = {
         let mut s = state.borrow_mut();
         let xpub = s.account_xpub(0).map_err(|e| anyhow!("seed error: {e}"))?;
         let pk0 = xpub.pubkey_at(&s.secp, BRANCH_EXTERNAL, 0).map_err(|e| anyhow!("addr0: {e}"))?;
@@ -700,17 +758,19 @@ pub fn debug_inject_test_tx(state: StoredValue<AppState>) -> Result<()> {
         (p2pkh_script(&hash160(&pk0)).to_vec(), p2pkh_script(&hash160(&pk1)).to_vec())
     };
 
-    // REAL prevout: funding tx 37564c16...d954, vout 0, 100000 atoms, to index-0.
-    // txid is given in display (big-endian) order; reverse to internal byte order.
-    let txid_display = "37564c16ef112d03c1fd44df93c0fd2703b057580797de6489463bcabfe5d954";
-    let raw: Vec<u8> = (0..txid_display.len())
-        .step_by(2)
-        .map(|i| u8::from_str_radix(&txid_display[i..i + 2], 16).unwrap())
-        .collect();
-    let mut prev_hash = [0u8; 32];
-    for (i, b) in raw.iter().rev().enumerate() {
-        prev_hash[i] = *b;
-    }
+    // Synthetic funding tx: pays 100_000 atoms to our index-0 script at vout 0.
+    // No inputs are needed — nothing verifies the funding tx's own ancestry,
+    // only that its prefix hashes to prev_hash and that vout carries the
+    // declared amount and script.
+    let funding = MsgTx {
+        version: 1,
+        tx_in: Vec::new(),
+        tx_out: vec![TxOut { value: 100_000, version: 0, pk_script: prev_script.clone() }],
+        lock_time: 0,
+        expiry: 0,
+    };
+    let prev_hash = funding.tx_hash();
+    let prev_tx_prefix = funding.serialize_prefix();
 
     let input = InputMeta {
         prev_hash,
@@ -721,12 +781,25 @@ pub fn debug_inject_test_tx(state: StoredValue<AppState>) -> Result<()> {
         branch: BRANCH_EXTERNAL,
         index: 0, // device re-derives m/44'/42'/0'/0/0, checks prev_script
         prev_script,
+        prev_tx_prefix: Some(prev_tx_prefix),
     };
-    let output = OutputMeta {
-        value: 94_000, // 0.00094 DCR to index-1; fee = 6000 atoms
+    // A recipient we do NOT own (fixed dummy hash160) ...
+    let recipient = OutputMeta {
+        value: 60_000,
         version: 0,
-        pk_script: dest_script,
+        pk_script: p2pkh_script(&[0x42u8; 20]).to_vec(),
         is_change: false,
+        branch: None,
+        index: None,
+    };
+    // ... and change back to our own index-1, carrying the path that proves it.
+    let change = OutputMeta {
+        value: 34_000, // fee = 100_000 - 60_000 - 34_000 = 6_000 atoms
+        version: 0,
+        pk_script: change_script,
+        is_change: true,
+        branch: Some(BRANCH_EXTERNAL),
+        index: Some(1),
     };
     let req = SignRequest {
         format_version: FORMAT_VERSION,
@@ -735,7 +808,7 @@ pub fn debug_inject_test_tx(state: StoredValue<AppState>) -> Result<()> {
         lock_time: 0,
         expiry: 0,
         inputs: vec![input],
-        outputs: vec![output],
+        outputs: vec![recipient, change],
         account_fp: None,
     };
     let bytes = encode_sign_request(&req).map_err(|e| anyhow!("encode: {e}"))?;
@@ -743,4 +816,38 @@ pub fn debug_inject_test_tx(state: StoredValue<AppState>) -> Result<()> {
     // Origin::SdCard: symmetric file transport. The signed.dcrtx is written
     // out as a file (see approve_and_sign), matching how it was "loaded".
     ingest(state, Origin::SdCard, &bytes)
+}
+
+#[cfg(test)]
+mod decode_failure_tests {
+    use decred_core::airgap::decode_sign_request;
+
+    use super::describe_decode_failure;
+
+    /// A real format version 1 package, captured from the companion QR that the
+    /// `decode_ur` example carries. It fails CBOR decoding (v1 inputs have 8
+    /// fields, v3 has 9) rather than reaching the version gate, so without the
+    /// peek the user is shown a bare "Parse".
+    const V1_PACKAGE_HEX: &str = "87010100000082889820184e1864188a182218ea185c1890181e18dc\
+                                  18c71851186318ea188718f41718a818f7181c18ad18b718c418ef18\
+                                  3118d918b218481823186a182a18c0189f01001affffffff1a009896\
+                                  8000009819187618a914183a18fa18eb18cd18fd188c18da187218e6\
+                                  188718f018e418f7182f188f0a186b1418bb189f188818ac";
+
+    #[test]
+    fn stale_companion_version_is_named() {
+        let bytes = hex::decode(V1_PACKAGE_HEX.split_whitespace().collect::<String>()).unwrap();
+        let err = decode_sign_request(&bytes).expect_err("format version 1 must be refused");
+        let msg = describe_decode_failure(&bytes, &err);
+        assert!(msg.contains("older companion"), "expected a stale-companion message, got: {msg}");
+        assert!(msg.contains("version 1"), "the encoded version must be named, got: {msg}");
+    }
+
+    #[test]
+    fn unrecognizable_bytes_fall_back_to_the_raw_error() {
+        let bytes = [0xffu8; 8];
+        let err = decode_sign_request(&bytes).expect_err("garbage must not decode");
+        let msg = describe_decode_failure(&bytes, &err);
+        assert!(msg.starts_with("bad package:"), "expected the raw error, got: {msg}");
+    }
 }
