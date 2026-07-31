@@ -20,7 +20,7 @@ description = "KeyOS adapter over dcr-rs (Decred BIP39/BIP32/P2PKH/SigHashAll/EC
 license = "Apache-2.0"
 
 [dependencies]
-dcr-rs = { git = "https://github.com/jzbz/dcr-rs", rev = "5f9490669c499ddc2bb8f3133892f680f9a723d3" }
+dcr-rs = { git = "https://github.com/jzbz/dcr-rs", rev = "39015c46a8f53b2150529d4772ca9b7843ee8c65" }
 
 [dev-dependencies]
 foundation-ur = "0.4.0"
