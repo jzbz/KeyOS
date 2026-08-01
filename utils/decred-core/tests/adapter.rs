@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 The Decred developers
 // SPDX-License-Identifier: Apache-2.0
 //! Adapter smoke test: proves the `decred_core::…` paths KeyOS apps compile
 //! against still reach the real dcr-rs implementation, end to end — build a

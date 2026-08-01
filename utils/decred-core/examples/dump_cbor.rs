@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 The Decred developers
 // SPDX-License-Identifier: Apache-2.0
 //! Print the CBOR bytes of a reference format-version-3 SignRequest, annotated
 //! with the array layout — the quickest way to eyeball what a companion wallet

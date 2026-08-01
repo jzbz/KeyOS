@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 The Decred developers
 // SPDX-License-Identifier: Apache-2.0
 //! Decode a captured `UR:DCR-SIGN-REQUEST/...` QR frame back to CBOR bytes and
 //! (if it parses) print the SignRequest — the fastest way to inspect what a

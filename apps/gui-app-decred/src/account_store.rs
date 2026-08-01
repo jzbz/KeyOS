@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 The Decred developers
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Persistent named-account list (m/44'/42'/index'). The user creates accounts

@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 The Decred developers
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Signing flow. This is where the airgap package comes in (QR or SD), gets

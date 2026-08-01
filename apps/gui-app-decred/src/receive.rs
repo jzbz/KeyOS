@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 The Decred developers
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Receive screen: derive a fresh external-branch P2PKH address

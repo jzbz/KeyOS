@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 The Decred developers
 // SPDX-License-Identifier: Apache-2.0
 //! Sign a single-input request with a known test seed and print the resulting
 //! transaction hex. Companion piece to `build_unsigned.rs` for exercising the

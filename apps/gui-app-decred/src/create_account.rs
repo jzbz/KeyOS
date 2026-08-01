@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 The Decred developers
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // "Create account" here is lightweight: Decred wallet *creation* (generating /

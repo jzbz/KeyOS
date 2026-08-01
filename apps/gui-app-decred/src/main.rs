@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 The Decred developers
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Decred Wallet entry point. Mirrors gui-app-bitcoin/src/main.rs structure:

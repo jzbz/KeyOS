@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 The Decred developers
 // SPDX-License-Identifier: Apache-2.0
 //! Build a small single-input unsigned-tx package (`unsigned.dcrtx`) for
 //! exercising the SD-card signing flow end to end.
