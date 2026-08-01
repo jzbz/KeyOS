@@ -53,6 +53,7 @@ export component ReceivePage inherits BasePage {
                     }
                 }
             }
+
             if Passphrase.active: Rectangle {
                 height: 26px;
                 border-radius: 13px;
@@ -102,6 +103,7 @@ export component ReceivePage inherits BasePage {
                                 font-weight: i == 0 ? 800 : 500;
                             }
                         }
+
                         HorizontalLayout {
                             alignment: center;
                             spacing: 10px;
@@ -112,6 +114,7 @@ export component ReceivePage inherits BasePage {
                                 font-weight: i == Receive.chunks-bottom.length - 1 ? 800 : 500;
                             }
                         }
+
                         Text {
                             text: Receive.path;
                             color: #6b6b6b;
@@ -141,6 +144,7 @@ export component ReceivePage inherits BasePage {
                             Receive.show-address(Receive.index - 1);
                         }
                     }
+
                     VerticalLayout {
                         alignment: center;
                         Text {
@@ -151,6 +155,7 @@ export component ReceivePage inherits BasePage {
                             horizontal-alignment: center;
                         }
                     }
+
                     Button {
                         label: "Next ›";
                         importance: Importance.secondary;

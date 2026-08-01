@@ -175,7 +175,16 @@ fn draw_graph_colored(
         let offset_x = offset_x.round() % pattern_width;
         let offset_y = offset_y.round() % pattern_height;
         draw_normal_graph(
-            &mut pixmap, data, w, h, max_height, is_dark_mode, offset_x, offset_y, fg_color, fresh_fill,
+            &mut pixmap,
+            data,
+            w,
+            h,
+            max_height,
+            is_dark_mode,
+            offset_x,
+            offset_y,
+            fg_color,
+            fresh_fill,
         );
     }
 

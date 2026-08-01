@@ -83,6 +83,7 @@ export component ExportPage inherits BasePage {
                         Account.export-account-xpub(browse-index);
                     }
                 }
+
                 VerticalLayout {
                     alignment: center;
                     spacing: 2px;
@@ -93,6 +94,7 @@ export component ExportPage inherits BasePage {
                         font-weight: 700;
                         horizontal-alignment: center;
                     }
+
                     Text {
                         text: Account.export-path;
                         color: #6b6b6b;
@@ -100,6 +102,7 @@ export component ExportPage inherits BasePage {
                         horizontal-alignment: center;
                     }
                 }
+
                 Button {
                     label: "›";
                     importance: Importance.secondary;
@@ -139,11 +142,13 @@ export component ExportPage inherits BasePage {
                                 font-size: 15px;
                                 font-weight: 800;
                             }
+
                             Text {
                                 text: "…";
                                 color: #6b6b6b;
                                 font-size: 15px;
                             }
+
                             Text {
                                 text: Account.dpub-tail;
                                 color: #2dd8a3;
@@ -151,6 +156,7 @@ export component ExportPage inherits BasePage {
                                 font-weight: 800;
                             }
                         }
+
                         Text {
                             text: "After importing, check these characters match in your wallet.";
                             color: #6b6b6b;

@@ -33,14 +33,14 @@ export component AccountsPage inherits BasePage {
                 font-weight: 800;
                 horizontal-alignment: center;
             }
+
             Text {
-                text: Passphrase.active
-                    ? "Accounts of hidden wallet " + Passphrase.code
-                    : "Separate balances under this wallet";
+                text: Passphrase.active ? "Accounts of hidden wallet " + Passphrase.code : "Separate balances under this wallet";
                 color: Passphrase.active ? #ffb45e : #9aa0ab;
                 font-size: 15px;
                 horizontal-alignment: center;
             }
+
             if Passphrase.active: Text {
                 text: "Hidden wallet accounts are not saved. Next time you open this wallet only Main will be listed - recreate accounts in the same order to reach the same coins.";
                 color: #9aa0ab;
@@ -49,14 +49,14 @@ export component AccountsPage inherits BasePage {
                 wrap: word-wrap;
             }
 
-            Rectangle { height: 6px; }
+            Rectangle {
+                height: 6px;
+            }
 
             for row in Account.rows: Rectangle {
                 height: 92px;
                 border-radius: 20px;
-                background: row.active
-                    ? @linear-gradient(135deg, #16255280 0%, #0b122650 100%)
-                    : #0c0c10;
+                background: row.active ? @linear-gradient(135deg, #16255280 0%, #0b122650 100%) : #0c0c10;
                 border-width: row.active ? 2px : 1px;
                 border-color: row.active ? #2970ff : #1c1c1c;
                 clip: true;
@@ -111,6 +111,7 @@ export component AccountsPage inherits BasePage {
                             font-size: 22px;
                             font-weight: 800;
                         }
+
                         Text {
                             text: row.path;
                             color: #9aa0ab;

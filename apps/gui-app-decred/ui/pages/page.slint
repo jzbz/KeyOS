@@ -44,6 +44,7 @@ export component HomePage inherits BasePage {
                         Navigate.passphrase({ });
                     }
                 }
+
                 VerticalLayout {
                     alignment: center;
                     Text {
@@ -58,7 +59,10 @@ export component HomePage inherits BasePage {
             }
 
             // Prominent, centered mission line.
-            Rectangle { height: 10px; }
+            Rectangle {
+                height: 10px;
+            }
+
             Text {
                 text: "Air-gapped Signer";
                 color: #ffffff;
@@ -67,6 +71,7 @@ export component HomePage inherits BasePage {
                 letter-spacing: 0.5px;
                 horizontal-alignment: center;
             }
+
             Text {
                 text: "COLD · OFFLINE · SECURE";
                 color: #2970ff;
@@ -106,6 +111,7 @@ export component HomePage inherits BasePage {
                     Navigate.export({ });
                 }
             }
+
             Button {
                 label: "Accounts";
                 importance: Importance.secondary;

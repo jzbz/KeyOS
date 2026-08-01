@@ -49,10 +49,7 @@ impl AccountStore {
                         store.active = rest.trim().parse().unwrap_or(0);
                     } else if let Some((idx, name)) = line.split_once('\t') {
                         if let Ok(i) = idx.trim().parse::<u32>() {
-                            store.accounts.push(NamedAccount {
-                                index: i,
-                                name: name.to_string(),
-                            });
+                            store.accounts.push(NamedAccount { index: i, name: name.to_string() });
                         }
                     }
                 }
@@ -96,14 +93,10 @@ impl AccountStore {
         log::info!("AccountStore: saved {} account(s) to AppData", self.accounts.len());
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.accounts.is_empty()
-    }
+    pub fn is_empty(&self) -> bool { self.accounts.is_empty() }
 
     /// The next free account index (max existing + 1, or 0 if none).
-    pub fn next_index(&self) -> u32 {
-        self.accounts.iter().map(|a| a.index).max().map_or(0, |m| m + 1)
-    }
+    pub fn next_index(&self) -> u32 { self.accounts.iter().map(|a| a.index).max().map_or(0, |m| m + 1) }
 
     /// Returns Some(error message) if the name is invalid, None if OK.
     pub fn validate_name(&self, name: &str) -> Option<&'static str> {
@@ -127,10 +120,7 @@ impl AccountStore {
             return Err(e);
         }
         let index = self.next_index();
-        self.accounts.push(NamedAccount {
-            index,
-            name: name.trim().to_string(),
-        });
+        self.accounts.push(NamedAccount { index, name: name.trim().to_string() });
         self.active = index;
         self.save();
         log::info!("AccountStore: created account {} \"{}\"", index, name.trim());
@@ -147,10 +137,6 @@ impl AccountStore {
 
     /// Name of the active account (empty string if none).
     pub fn active_name(&self) -> String {
-        self.accounts
-            .iter()
-            .find(|a| a.index == self.active)
-            .map(|a| a.name.clone())
-            .unwrap_or_default()
+        self.accounts.iter().find(|a| a.index == self.active).map(|a| a.name.clone()).unwrap_or_default()
     }
 }

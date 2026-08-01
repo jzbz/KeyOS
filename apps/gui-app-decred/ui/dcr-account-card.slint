@@ -46,24 +46,28 @@ export component DcrAccountCard inherits Rectangle {
                 font-weight: 700;
                 letter-spacing: 2px;
             }
+
             Text {
                 text: name;
                 color: #ffffff;
                 font-size: 24px;
                 font-weight: 800;
             }
+
             Text {
                 text: crypto-balance;
                 color: #ffffff;
                 font-size: 38px;
                 font-weight: 800;
             }
+
             Text {
                 text: fiat-balance;
                 color: #9aa0ab;
                 font-size: 18px;
                 font-weight: 600;
             }
+
             if source-note != "": Text {
                 text: source-note;
                 color: #6b7280;

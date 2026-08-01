@@ -39,7 +39,9 @@ export component PassphrasePage inherits BasePage {
                 font-weight: 800;
                 horizontal-alignment: center;
             }
-            if stage == 0: Rectangle { height: 8px; }
+            if stage == 0: Rectangle {
+                height: 8px;
+            }
             if stage == 0: Text {
                 text: "A passphrase acts as a second layer of security to protect your Decred.";
                 color: #c9cdd6;
@@ -145,6 +147,7 @@ export component PassphrasePage inherits BasePage {
                         font-weight: 800;
                         letter-spacing: 1.5px;
                     }
+
                     Text {
                         text: root.entry;
                         color: #ffffff;
@@ -152,7 +155,11 @@ export component PassphrasePage inherits BasePage {
                         font-weight: 700;
                         wrap: char-wrap;
                     }
-                    Rectangle { height: 4px; }
+
+                    Rectangle {
+                        height: 4px;
+                    }
+
                     Text {
                         text: "FINGERPRINT";
                         color: #2970ff;
@@ -160,6 +167,7 @@ export component PassphrasePage inherits BasePage {
                         font-weight: 800;
                         letter-spacing: 1.5px;
                     }
+
                     Text {
                         text: Passphrase.code;
                         color: #2dd8a3;

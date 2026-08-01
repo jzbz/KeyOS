@@ -18,12 +18,12 @@ license = "GPL-3.0-or-later"
 [dependencies]
 # --- KeyOS workspace crates (only what this app actually calls) ---
 anyhow = { workspace = true }
-foundation-ur = { workspace = true }       # animated QR (UR) encode/decode
-fs = { workspace = true }                  # SD-card read/write
+foundation-ur = { workspace = true } # animated QR (UR) encode/decode
+fs = { workspace = true }            # SD-card read/write
 hex = { workspace = true }
 log = { workspace = true }
 log-server = { workspace = true }
-security = { workspace = true }            # GetSeed seam
+security = { workspace = true }      # GetSeed seam
 # Not called directly: the platform's generated router (#[route] on the page
 # props structs) expands to serde derives, and security::use_api!() expands to
 # IPC plumbing referencing `server` — both must stay linked.
@@ -35,7 +35,7 @@ slint-keyos-platform = { path = "../../slint-keyos-platform/runtime" }
 # Thin KeyOS adapter over the shared dcr-rs library; secp256k1 is re-exported
 # through it so the whole app provably uses one curve implementation.
 decred-core = { path = "../../utils/decred-core" }
-zeroize = "1"       # wipe the session passphrase on replace (dcr-rs wipes key material)
+zeroize = "1"                                      # wipe the session passphrase on replace (dcr-rs wipes key material)
 
 [build-dependencies]
 slint-keyos-platform-build = { path = "../../slint-keyos-platform/build" }
